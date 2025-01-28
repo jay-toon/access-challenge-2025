@@ -41,15 +41,36 @@ class Database {
                 )
             ");
 
-            // Posts table (example of additional table)
+            // Suppliers table
             $this->conn->exec("
-                CREATE TABLE IF NOT EXISTS posts (
+                CREATE TABLE IF NOT EXISTS suppliers (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    share_code VARCHAR(100) UNIQUE,
+                    supplier_data JSON,
+                    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+                    reviewed_by INT,
+                    rejection_reason TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (reviewed_by) REFERENCES users(id),
+                    INDEX idx_status (status),
+                    INDEX idx_share_code (share_code)
+                )
+            ");
+
+            // Audit log table
+            $this->conn->exec("
+                CREATE TABLE IF NOT EXISTS audit_logs (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     user_id INT,
-                    title VARCHAR(255) NOT NULL,
-                    content TEXT NOT NULL,
+                    action VARCHAR(50) NOT NULL,
+                    entity_type VARCHAR(50) NOT NULL,
+                    entity_id INT NOT NULL,
+                    old_value JSON,
+                    new_value JSON,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id)
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    INDEX idx_entity (entity_type, entity_id)
                 )
             ");
 

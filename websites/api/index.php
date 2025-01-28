@@ -39,6 +39,7 @@ $action = $uri[1] ?? '';
 // Initialize controllers
 $authController = new AuthController();
 $systemController = new SystemController();
+$supplier = new Supplier();
 
 // Routes
 switch($route) {
@@ -85,9 +86,50 @@ switch($route) {
                     'tables' => $tables
                 ],
                 'available_endpoints' => [
-                    'POST /auth/register' => 'Register new user',
-                    'POST /auth/login' => 'Login user',
-                    'GET /users' => 'List all users'
+                    'Authentication' => [
+                        'POST /auth/register' => 'Register new user',
+                        'POST /auth/login' => 'Login user'
+                    ],
+                    'Users' => [
+                        'GET /users' => 'List all users',
+                        'GET /users/{id}' => 'Get specific user'
+                    ],
+                    'Suppliers' => [
+                        'POST /suppliers/create' => [
+                            'description' => 'Create new supplier',
+                            'body' => [
+                                'share_code' => 'string',
+                                'supplier_data' => 'object'
+                            ]
+                        ],
+                        'GET /suppliers/pending' => 'List all pending suppliers',
+                        'GET /suppliers/{id}' => 'Get specific supplier',
+                        'POST /suppliers/status' => [
+                            'description' => 'Update supplier status',
+                            'body' => [
+                                'id' => 'integer',
+                                'status' => 'string (pending|approved|rejected)',
+                                'rejection_reason' => 'string (optional)'
+                            ]
+                        ]
+                    ],
+                    'System' => [
+                        'GET /' => 'API information and system status'
+                    ]
+                ],
+                'example_requests' => [
+                    'Create Supplier' => [
+                        'curl' => 'curl -X POST http://localhost/api/suppliers/create \
+-H "Content-Type: application/json" \
+-d \'{"share_code": "ABC123", "supplier_data": {"name": "Test Supplier"}}\'',
+                        'response' => ['id' => 1]
+                    ],
+                    'Update Status' => [
+                        'curl' => 'curl -X POST http://localhost/api/suppliers/status \
+-H "Content-Type: application/json" \
+-d \'{"id": 1, "status": "approved"}\'',
+                        'response' => ['message' => 'Status updated successfully']
+                    ]
                 ]
             ]);
         } catch (Exception $e) {
@@ -98,6 +140,64 @@ switch($route) {
     case 'auth':
         if ($action === 'register' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $authController->register();
+        }
+        break;
+
+    case 'suppliers':
+        switch($action) {
+            case 'create':
+                if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                    try {
+                        $data = json_decode(file_get_contents('php://input'), true);
+                        $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+                        $supplierId = $supplier->create($data, $userId);
+                        Response::success(['id' => $supplierId]);
+                    } catch(Exception $e) {
+                        Response::error(500, $e->getMessage());
+                    }
+                }
+                break;
+
+            case 'pending':
+                if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                    try {
+                        $pendingSuppliers = $supplier->getPending();
+                        Response::success(['suppliers' => $pendingSuppliers]);
+                    } catch(Exception $e) {
+                        Response::error(500, $e->getMessage());
+                    }
+                }
+                break;
+
+            case 'status':
+                if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                    try {
+                        $data = json_decode(file_get_contents('php://input'), true);
+                        $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+                        $supplier->updateStatus(
+                            $data['id'],
+                            $data['status'],
+                            $userId,
+                            $data['rejection_reason'] ?? null
+                        );
+                        Response::success(['message' => 'Status updated successfully']);
+                    } catch(Exception $e) {
+                        Response::error(500, $e->getMessage());
+                    }
+                }
+                break;
+
+            default:
+                if (is_numeric($action)) {
+                    $supplierData = $supplier->getById($action);
+                    if ($supplierData) {
+                        Response::success(['supplier' => $supplierData]);
+                    } else {
+                        Response::error(404, 'Supplier not found');
+                    }
+                } else {
+                    Response::error(404, 'Invalid endpoint');
+                }
         }
         break;
 
