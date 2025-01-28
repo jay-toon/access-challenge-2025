@@ -4,6 +4,15 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && empty($_GET)) {
+    // Show welcome message for root API endpoint
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'API is working!'
+    ]);
+    exit;
+}
+
 session_start();
 
 // Autoload classes

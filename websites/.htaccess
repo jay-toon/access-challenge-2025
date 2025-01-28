@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Redirect API requests to the API directory
+RewriteRule ^api(/.*)?$ api/index.php [QSA,L]
+
+# For all other requests, serve normally
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L] 

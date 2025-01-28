@@ -1,91 +1,38 @@
 services:
-  updatecerts:
-    image: vjedev/certupdater:latest
-    volumes:
-      - certs:/certs
-      - mysqlconf:/mysqlconf
-  landingpage:
-    image: vjedev/landingpage:latest
-    volumes:
-      - ./websites:/websites
-  databaseimportexport:
-    image: vjedev/database-import-export:latest
-    volumes:
-      - ./websites:/websites
-    depends_on:
-      - mysql
   web:
     image: nginx:latest
     ports:
       - "80:80"
-      - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/nginx.conf
-      - certs:/certs
-      - ./websites:/websites
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./websites:/var/www/html:ro
     depends_on:
-      - updatecerts
+      - php
+
   php:
-    image: php:8.2-apache
+    image: php:8.2-fpm
     ports:
       - "8080:80"
     volumes:
-      - ./api:/var/www/html
+      - ./websites:/var/www/html:ro
     command: >
       sh -c "
-        apt-get update && apt-get install -y \
-        sqlite3 \
-        libsqlite3-dev \
-        default-mysql-client \
-        libpq-dev \
-        && docker-php-ext-install pdo pdo_sqlite pdo_mysql \
-        && a2enmod rewrite \
-        && echo 'ServerName localhost' >> /etc/apache2/apache2.conf \
-        && service apache2 restart \
-        && chmod 777 /var/www/html \
-        && apache2-foreground
-      "
-    environment:
-      - CDP_API_URL=https://data-sharing.dev.supplier.information.findatender.codatt.net
-      - CDP_API_KEY=d87221c57b5642c48f2d7c0ae5e3b890
-  phpunit:
-    build:
-      context: .
-      dockerfile: PHP.Dockerfile
-    working_dir: /websites/default
-    entrypoint: "vendor/bin/phpunit"
-    volumes:
-      - ./websites:/websites
-    profiles:
-      - phpunit
-  composer:
-    build:
-      context: .
-      dockerfile: PHP.Dockerfile
-    working_dir: /websites/default
-    entrypoint: /usr/bin/composer
-    volumes:
-      - ./websites:/websites
-    profiles:
-      - composer
-  maildev:
-    image: maildev/maildev:latest
+        apt-get update && 
+        apt-get install -y sqlite3 libsqlite3-dev default-mysql-client libpq-dev &&
+        docker-php-ext-install pdo pdo_sqlite pdo_mysql &&
+        php-fpm"
 
-  # Add MySQL service
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword # Change this
-      MYSQL_DATABASE: mydb # Change this
-      MYSQL_USER: user # Change this
-      MYSQL_PASSWORD: password # Change this
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_DATABASE: "development"
+      MYSQL_USER: "developer"
+      MYSQL_PASSWORD: "developer"
     volumes:
-      - db_data:/var/lib/mysql
-      - mysqlconf:/etc/mysql/conf.d
+      - mysqldata:/var/lib/mysql
     ports:
       - "3306:3306"
 
 volumes:
-  db_data: {}
-  certs: {}
-  mysqlconf: {}
+  mysqldata: {}
