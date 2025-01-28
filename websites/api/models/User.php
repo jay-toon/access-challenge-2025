@@ -1,6 +1,7 @@
 <?php
 class User {
     private $db;
+    private $table = 'users';
 
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
@@ -14,16 +15,19 @@ class User {
     }
 
     public function create($data) {
-        $stmt = $this->db->prepare('
-            INSERT INTO users (full_name, email, authority, password)
-            VALUES (:full_name, :email, :authority, :password)
-        ');
+        $query = "INSERT INTO {$this->table} (username, password, email) VALUES (:username, :password, :email)";
+        $stmt = $this->db->prepare($query);
         
-        $stmt->bindValue(':full_name', $data['fullName']);
-        $stmt->bindValue(':email', $data['email']);
-        $stmt->bindValue(':authority', $data['authority']);
-        $stmt->bindValue(':password', $data['password']);
-        
-        return $stmt->execute() ? $this->db->lastInsertRowID() : false;
+        return $stmt->execute([
+            ':username' => $data['username'],
+            ':password' => password_hash($data['password'], PASSWORD_DEFAULT),
+            ':email' => $data['email']
+        ]);
+    }
+
+    public function getAll() {
+        $query = "SELECT id, username, email, created_at FROM {$this->table}";
+        $stmt = $this->db->query($query);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 } 

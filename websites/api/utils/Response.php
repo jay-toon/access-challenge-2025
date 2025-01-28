@@ -10,7 +10,12 @@ class Response {
         self::json(['error' => $message], $status);
     }
 
-    public static function success($data = null) {
-        self::json(['success' => true, 'data' => $data]);
+    public static function success($data = null, $code = 200) {
+        http_response_code($code);
+        echo json_encode([
+            'status' => 'success',
+            'data' => $data
+        ]);
+        exit;
     }
 } 

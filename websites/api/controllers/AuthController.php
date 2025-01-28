@@ -35,22 +35,23 @@ class AuthController {
 
     public function register() {
         $data = json_decode(file_get_contents('php://input'), true);
-        
-        if (!str_ends_with($data['email'], '.gov.uk')) {
-            Response::error(400, 'Must use a .gov.uk email');
+
+        if (!$this->validateRegistration($data)) {
+            Response::error(400, 'Missing required fields');
         }
 
-        $userId = $this->userModel->create($data);
-        if ($userId) {
-            $_SESSION['user'] = [
-                'id' => $userId,
-                'email' => $data['email'],
-                'fullName' => $data['fullName'],
-                'authority' => $data['authority']
-            ];
-            Response::success(['user' => $_SESSION['user']]);
+        try {
+            if ($this->userModel->create($data)) {
+                Response::success(['message' => 'User registered successfully']);
+            }
+        } catch(PDOException $e) {
+            Response::error(400, 'Username or email already exists');
         }
+    }
 
-        Response::error(500, 'Registration failed');
+    private function validateRegistration($data) {
+        return isset($data['username']) && 
+               isset($data['password']) && 
+               isset($data['email']);
     }
 } 
