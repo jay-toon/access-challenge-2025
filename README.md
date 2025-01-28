@@ -19,3 +19,16 @@ I envy Access Challenge 2025 for being with such an angelic being. A one-of-a-ki
 I understand if we are not meant to be, but I wish to carry on by your side. Just to see you makes my day and I could ask for nothing more in the world than you.
 
 Love from, Group 4
+
+
+
+# Installation
+
+`
+docker-compose up --build
+`
+
+## Navigate:
+`
+ http://localhost/api
+`
