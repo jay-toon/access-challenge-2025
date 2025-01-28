@@ -27,24 +27,72 @@ spl_autoload_register(function ($class) {
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = explode('/', trim($uri, '/'));
 
-// Basic routing
+// Remove 'api' from the URI if it exists
+if ($uri[0] === 'api') {
+    array_shift($uri);
+}
+
+// Get route parts
 $route = $uri[0] ?? '';
 $action = $uri[1] ?? '';
 
 // Initialize controllers
 $authController = new AuthController();
+$systemController = new SystemController();
 
 // Routes
 switch($route) {
     case '':
-        Response::success([
-            'message' => 'API is working!',
-            'version' => '1.0',
-            'endpoints' => [
-                'POST /auth/register' => 'Register new user',
-                'GET /users' => 'List all users'
-            ]
-        ]);
+        // Root endpoint - show API documentation and system status
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            // Get database status
+            $dbConnected = false;
+            $dbVersion = null;
+            $tables = [];
+            
+            try {
+                $dbConnected = $db->query('SELECT 1')->fetch() ? true : false;
+                $dbVersion = $db->getAttribute(PDO::ATTR_SERVER_VERSION);
+                
+                // Get tables info
+                $tablesQuery = $db->query("SHOW TABLES");
+                while ($table = $tablesQuery->fetch(PDO::FETCH_COLUMN)) {
+                    $countQuery = $db->query("SELECT COUNT(*) as count FROM " . $table);
+                    $count = $countQuery->fetch(PDO::FETCH_ASSOC)['count'];
+                    $tables[$table] = [
+                        'rows' => $count
+                    ];
+                }
+            } catch (PDOException $e) {
+                $dbConnected = false;
+            }
+
+            Response::success([
+                'api_info' => [
+                    'status' => 'online',
+                    'version' => '1.0',
+                    'timestamp' => date('Y-m-d H:i:s'),
+                ],
+                'system_status' => [
+                    'php_version' => PHP_VERSION,
+                    'memory_usage' => formatBytes(memory_get_usage(true))
+                ],
+                'database_status' => [
+                    'connected' => $dbConnected,
+                    'version' => $dbVersion,
+                    'tables' => $tables
+                ],
+                'available_endpoints' => [
+                    'POST /auth/register' => 'Register new user',
+                    'POST /auth/login' => 'Login user',
+                    'GET /users' => 'List all users'
+                ]
+            ]);
+        } catch (Exception $e) {
+            Response::error(500, 'System status check failed: ' . $e->getMessage());
+        }
         break;
 
     case 'auth':
@@ -55,4 +103,15 @@ switch($route) {
 
     default:
         Response::error(404, 'Endpoint not found');
+}
+
+// Helper function to format bytes
+function formatBytes($bytes) {
+    if ($bytes < 1024) {
+        return $bytes . ' bytes';
+    } elseif ($bytes < 1048576) {
+        return round($bytes / 1024, 2) . ' KB';
+    } else {
+        return round($bytes / 1048576, 2) . ' MB';
+    }
 } 
