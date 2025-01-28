@@ -1,73 +1,79 @@
-version: '3.8'
+version: "3.8"
 services:
-    updatecerts:
-        image: vjedev/certupdater:latest
-        volumes:
-            - certs:/certs
-            - mysqlconf:/mysqlconf
-    landingpage:
-        image: vjedev/landingpage:latest
-        volumes:
-            - ./websites:/websites
-    databaseimportexport:
-        image: vjedev/database-import-export:latest
-        volumes:
-            - ./websites:/websites
-        depends_on:
-            - mysql
-    web:
-        image: nginx:latest
-        ports:
-            - "80:80"
-            - "443:443"
-        volumes:
-            - ./nginx.conf:/etc/nginx/conf.d/nginx.conf
-            - certs:/certs
-            - ./websites:/websites
-        depends_on:
-            - updatecerts
-    php:
-        build:
-            context: .
-            dockerfile: PHP.Dockerfile
-        volumes:
-            - ./websites:/websites
-    mysql:
-        image: mariadb:latest
-        environment:
-            MYSQL_ROOT_PASSWORD: 'v.je'
-            MYSQL_USER: 'v.je'
-            MYSQL_PASSWORD: 'v.je'
-        volumes:
-            - mysqldata:/var/lib/mysql
-            - certs:/ssl
-            - mysqlconf:/etc/mysql/conf.d/
-        ports:
-            - 3306:3306
-    phpunit:
-        build:
-            context: .
-            dockerfile: PHP.Dockerfile
-        working_dir: /websites/default
-        entrypoint: 'vendor/bin/phpunit'
-        volumes:
-            - ./websites:/websites
-        profiles:
-            - phpunit
-    composer:
-        build:
-            context: .
-            dockerfile: PHP.Dockerfile
-        working_dir: /websites/default
-        entrypoint: /usr/bin/composer
-        volumes:
-            - ./websites:/websites
-        profiles:
-            - composer
-    maildev:
-        image: maildev/maildev:latest
+  updatecerts:
+    image: vjedev/certupdater:latest
+    volumes:
+      - certs:/certs
+      - mysqlconf:/mysqlconf
+  landingpage:
+    image: vjedev/landingpage:latest
+    volumes:
+      - ./websites:/websites
+  databaseimportexport:
+    image: vjedev/database-import-export:latest
+    volumes:
+      - ./websites:/websites
+    depends_on:
+      - mysql
+  web:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/nginx.conf
+      - certs:/certs
+      - ./websites:/websites
+    depends_on:
+      - updatecerts
+  php:
+    image: php:8.2-apache
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+    command: >
+      sh -c "docker-php-ext-install pdo pdo_mysql &&
+             a2enmod rewrite &&
+             apache2-foreground"
+    environment:
+      - CDP_API_URL=https://data-sharing.dev.supplier.information.findatender.codatt.net
+      - CDP_API_KEY=d87221c57b5642c48f2d7c0ae5e3b890
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: supplier_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - 3306:3306
+    volumes:
+      - db_data:/var/lib/mysql
+  phpunit:
+    build:
+      context: .
+      dockerfile: PHP.Dockerfile
+    working_dir: /websites/default
+    entrypoint: "vendor/bin/phpunit"
+    volumes:
+      - ./websites:/websites
+    profiles:
+      - phpunit
+  composer:
+    build:
+      context: .
+      dockerfile: PHP.Dockerfile
+    working_dir: /websites/default
+    entrypoint: /usr/bin/composer
+    volumes:
+      - ./websites:/websites
+    profiles:
+      - composer
+  maildev:
+    image: maildev/maildev:latest
 
 volumes:
-    mysqldata: {}
-    certs: {}
-    mysqlconf: {}
+  db_data: {}
+  certs: {}
+  mysqlconf: {}
