@@ -35,11 +35,12 @@ if ($uri[0] === 'api') {
 // Get route parts
 $route = $uri[0] ?? '';
 $action = $uri[1] ?? '';
+$id = $uri[2] ?? null;
 
-// Initialize controllers
+// Initialize controllers and models
 $authController = new AuthController();
 $systemController = new SystemController();
-$supplier = new Supplier();
+$supplierModel = new Supplier();
 
 // Routes
 switch($route) {
@@ -138,34 +139,67 @@ switch($route) {
         break;
 
     case 'auth':
-        if ($action === 'register' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-            $authController->register();
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            switch($action) {
+                case 'register':
+                    $authController->register();
+                    break;
+                case 'login':
+                    $authController->login();
+                    break;
+                default:
+                    Response::error(404, 'Invalid auth endpoint');
+            }
+        } else {
+            Response::error(405, 'Method not allowed');
         }
         break;
 
     case 'suppliers':
         switch($action) {
+            case '':
+                // GET /suppliers - List all suppliers
+                if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                    try {
+                        $suppliers = $supplierModel->getAll();
+                        Response::success(['suppliers' => $suppliers]);
+                    } catch(Exception $e) {
+                        Response::error(500, $e->getMessage());
+                    }
+                } else {
+                    Response::error(405, 'Method not allowed');
+                }
+                break;
+
             case 'create':
                 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     try {
                         $data = json_decode(file_get_contents('php://input'), true);
+                        if (!$data) {
+                            Response::error(400, 'Invalid JSON data');
+                            break;
+                        }
                         $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
-                        $supplierId = $supplier->create($data, $userId);
-                        Response::success(['id' => $supplierId]);
+                        $supplierId = $supplierModel->create($data, $userId);
+                        Response::success(['id' => $supplierId, 'message' => 'Supplier created successfully']);
                     } catch(Exception $e) {
                         Response::error(500, $e->getMessage());
                     }
+                } else {
+                    Response::error(405, 'Method not allowed');
                 }
                 break;
 
             case 'pending':
                 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     try {
-                        $pendingSuppliers = $supplier->getPending();
+                        $pendingSuppliers = $supplierModel->getPending();
                         Response::success(['suppliers' => $pendingSuppliers]);
                     } catch(Exception $e) {
                         Response::error(500, $e->getMessage());
                     }
+                } else {
+                    Response::error(405, 'Method not allowed');
                 }
                 break;
 
@@ -173,8 +207,12 @@ switch($route) {
                 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     try {
                         $data = json_decode(file_get_contents('php://input'), true);
+                        if (!$data || !isset($data['id']) || !isset($data['status'])) {
+                            Response::error(400, 'Missing required fields');
+                            break;
+                        }
                         $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
-                        $supplier->updateStatus(
+                        $supplierModel->updateStatus(
                             $data['id'],
                             $data['status'],
                             $userId,
@@ -184,16 +222,27 @@ switch($route) {
                     } catch(Exception $e) {
                         Response::error(500, $e->getMessage());
                     }
+                } else {
+                    Response::error(405, 'Method not allowed');
                 }
                 break;
 
             default:
+                // Handle GET /suppliers/{id}
                 if (is_numeric($action)) {
-                    $supplierData = $supplier->getById($action);
-                    if ($supplierData) {
-                        Response::success(['supplier' => $supplierData]);
+                    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                        try {
+                            $supplier = $supplierModel->getById($action);
+                            if ($supplier) {
+                                Response::success(['supplier' => $supplier]);
+                            } else {
+                                Response::error(404, 'Supplier not found');
+                            }
+                        } catch(Exception $e) {
+                            Response::error(500, $e->getMessage());
+                        }
                     } else {
-                        Response::error(404, 'Supplier not found');
+                        Response::error(405, 'Method not allowed');
                     }
                 } else {
                     Response::error(404, 'Invalid endpoint');
